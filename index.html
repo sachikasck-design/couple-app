@@ -112,22 +112,22 @@ canvas{width:100%!important}
     <div class="card-title">今月の入金状況</div>
     <div class="payment-grid">
       <div class="payment-item">
-        <div class="payment-who">太郎</div>
+        <div class="payment-who">よしたか</div>
         <div class="payment-type">生活費 ¥64,400</div>
         <button class="payment-toggle unpaid" id="pay-t-living" onclick="togglePayment('t-living')">未入金</button>
       </div>
       <div class="payment-item">
-        <div class="payment-who">花子</div>
+        <div class="payment-who">さちか</div>
         <div class="payment-type">生活費 ¥64,400</div>
         <button class="payment-toggle unpaid" id="pay-h-living" onclick="togglePayment('h-living')">未入金</button>
       </div>
       <div class="payment-item">
-        <div class="payment-who">太郎</div>
+        <div class="payment-who">よしたか</div>
         <div class="payment-type">共有貯金 ¥15,000</div>
         <button class="payment-toggle unpaid" id="pay-t-saving" onclick="togglePayment('t-saving')">未入金</button>
       </div>
       <div class="payment-item">
-        <div class="payment-who">花子</div>
+        <div class="payment-who">さちか</div>
         <div class="payment-type">共有貯金 ¥15,000</div>
         <button class="payment-toggle unpaid" id="pay-h-saving" onclick="togglePayment('h-saving')">未入金</button>
       </div>
@@ -142,8 +142,8 @@ canvas{width:100%!important}
       <div class="add-form-row">
         <input type="number" id="tx-amt" placeholder="金額" min="0">
         <select id="tx-who">
-          <option value="太郎">太郎が立替</option>
-          <option value="花子">花子が立替</option>
+          <option value="よしたか">よしたかが立替</option>
+          <option value="さちか">さちかが立替</option>
         </select>
       </div>
       <input type="date" id="tx-date">
@@ -308,6 +308,18 @@ window.addTx = function(){
   toast('追加しました');
 }
 
+window.editTx = function(mk, key, currentMemo, currentAmt){
+  const newMemo = prompt('内容を修正してください', currentMemo);
+  if(newMemo===null) return;
+  const newAmtStr = prompt('金額を修正してください', currentAmt);
+  if(newAmtStr===null) return;
+  const newAmt = parseInt(newAmtStr);
+  if(isNaN(newAmt)||newAmt<0){ toast('正しい金額を入力してください'); return; }
+  const cur = (txns[mk]||{})[key];
+  set(ref(db, `txns/${mk}/${key}`), {...cur, memo:newMemo.trim(), amt:newAmt});
+  toast('修正しました');
+}
+
 window.deleteTx = function(mk, key){
   if(!confirm('削除しますか？')) return;
   remove(ref(db, `txns/${mk}/${key}`));
@@ -331,12 +343,13 @@ function renderTx(){
   }
   el.innerHTML = entries.map(([key,t])=>`
     <div class="tx-item">
-      <div class="tx-avatar ${t.who==='太郎'?'av-t':'av-h'}">${t.who[0]}</div>
+      <div class="tx-avatar ${t.who==='よしたか'?'av-t':'av-h'}">${t.who==='よしたか'?'よ':'さ'}</div>
       <div class="tx-body">
         <div class="tx-name">${t.memo}</div>
         <div class="tx-date">${t.date} ・ ${t.who}</div>
       </div>
       <div class="tx-amount">¥${t.amt.toLocaleString()}</div>
+      <button class="tx-del" onclick="editTx('${mk}','${key}','${t.memo}',${t.amt})" style="background:#f0f0ee;color:#666;font-size:11px;width:auto;padding:0 8px;border-radius:6px">修正</button>
       <button class="tx-del" onclick="deleteTx('${mk}','${key}')">×</button>
     </div>`).join('');
   calcSettle(list);
@@ -344,7 +357,7 @@ function renderTx(){
 
 function calcSettle(list){
   let t=0, h=0;
-  Object.values(list).forEach(x=>{ x.who==='太郎'?t+=x.amt:h+=x.amt });
+  Object.values(list).forEach(x=>{ x.who==='よしたか'?t+=x.amt:h+=x.amt });
   const diff = t - h;
   const abs = Math.abs(diff);
   const box = document.getElementById('settle-box');
@@ -356,12 +369,27 @@ function calcSettle(list){
   } else if(diff > 0){
     box.className='settle-box settle';
     val.style.color='#185FA5';
-    val.textContent=`花子 → 太郎 へ ¥${abs.toLocaleString()}`;
+    val.textContent=`さちか → よしたか へ ¥${abs.toLocaleString()}`;
   } else {
     box.className='settle-box settle';
     val.style.color='#534AB7';
-    val.textContent=`太郎 → 花子 へ ¥${abs.toLocaleString()}`;
+    val.textContent=`よしたか → さちか へ ¥${abs.toLocaleString()}`;
   }
+}
+
+window.editSavings = function(key, month, currentAmt){
+  const newAmt = prompt(`${month.replace('-','年')}月の金額を修正してください\n現在：¥${currentAmt.toLocaleString()}`, currentAmt);
+  if(newAmt===null) return;
+  const a = parseInt(newAmt);
+  if(isNaN(a)||a<0){ toast('正しい金額を入力してください'); return; }
+  set(ref(db, `savings/${key}`), {month, amt:a});
+  toast('修正しました');
+}
+
+window.deleteSavings = function(key){
+  if(!confirm('この記録を削除しますか？')) return;
+  remove(ref(db, `savings/${key}`));
+  toast('削除しました');
 }
 
 window.addSavings = function(){
@@ -381,12 +409,14 @@ onValue(ref(db,'savings'), snap=>{
 
 function renderSavingsList(){
   const el = document.getElementById('savings-list');
-  const entries = Object.values(savingsData).sort((a,b)=>b.month.localeCompare(a.month));
+  const entries = Object.entries(savingsData).sort((a,b)=>b[0].localeCompare(a[0]));
   if(!entries.length){ el.innerHTML='<div class="empty">記録がありません</div>'; return; }
-  el.innerHTML = entries.map(d=>`
-    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0ee">
-      <span style="font-size:14px;color:#666">${d.month.replace('-','年')}月</span>
-      <span style="font-size:14px;font-weight:600">¥${d.amt.toLocaleString()}</span>
+  el.innerHTML = entries.map(([key,d])=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid #f0f0ee">
+      <span style="font-size:14px;color:#666;flex:1">${d.month.replace('-','年')}月</span>
+      <span id="s-val-${key}" style="font-size:14px;font-weight:600">¥${d.amt.toLocaleString()}</span>
+      <button onclick="editSavings('${key}','${d.month}',${d.amt})" style="border:none;background:#f0f0ee;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;color:#666">修正</button>
+      <button onclick="deleteSavings('${key}')" style="border:none;background:#fff0f0;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;color:#c0392b">削除</button>
     </div>`).join('');
 }
 
