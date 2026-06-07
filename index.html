@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>家計ノート</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif;background:#f7f7f5;color:#1a1a1a;max-width:480px;margin:0 auto;min-height:100vh}
+
+/* ナビゲーション */
+.bottom-nav{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;border-top:1px solid #e8e8e4;display:flex;z-index:100}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;padding:10px 0 14px;border:none;background:none;cursor:pointer;color:#999;font-size:10px;gap:3px;transition:color .2s}
+.nav-btn.active{color:#1D9E75}
+.nav-btn svg{width:22px;height:22px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+
+/* ページ共通 */
+.page{display:none;padding:0 0 90px}
+.page.active{display:block}
+.page-header{padding:20px 20px 12px;background:#fff;border-bottom:1px solid #e8e8e4;position:sticky;top:0;z-index:50}
+.page-title{font-size:18px;font-weight:600;color:#1a1a1a}
+.page-sub{font-size:13px;color:#999;margin-top:2px}
+
+/* カード */
+.card{background:#fff;border-radius:16px;margin:12px 16px;padding:16px;border:1px solid #e8e8e4}
+.card-title{font-size:12px;font-weight:600;color:#999;text-transform:uppercase;letter-spacing:.5px;margin-bottom:12px}
+
+/* 月ナビ */
+.month-nav{display:flex;align-items:center;justify-content:space-between;padding:12px 20px;background:#fff;border-bottom:1px solid #e8e8e4}
+.month-nav button{width:32px;height:32px;border-radius:50%;border:1px solid #e8e8e4;background:#fff;cursor:pointer;font-size:16px;color:#666;display:flex;align-items:center;justify-content:center}
+.month-nav button:active{background:#f0f0ee}
+.month-label{font-size:15px;font-weight:600}
+
+/* 入金ステータス */
+.payment-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.payment-item{border:1px solid #e8e8e4;border-radius:12px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.payment-who{font-size:13px;font-weight:600}
+.payment-type{font-size:11px;color:#999}
+.payment-toggle{border:none;border-radius:8px;padding:6px 10px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.payment-toggle.paid{background:#e1f5ee;color:#0F6E56}
+.payment-toggle.unpaid{background:#fef3e2;color:#92510a}
+
+/* 立替リスト */
+.tx-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f0ee}
+.tx-item:last-child{border-bottom:none}
+.tx-avatar{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0}
+.av-t{background:#EEEDFE;color:#3C3489}
+.av-h{background:#E1F5EE;color:#085041}
+.tx-body{flex:1;min-width:0}
+.tx-name{font-size:14px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tx-date{font-size:11px;color:#999;margin-top:1px}
+.tx-amount{font-size:14px;font-weight:600;color:#c0392b;flex-shrink:0}
+.tx-del{width:28px;height:28px;border-radius:50%;border:none;background:#f7f7f5;cursor:pointer;color:#bbb;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.tx-del:active{background:#ffe8e8;color:#c0392b}
+
+/* 精算ボックス */
+.settle-box{border-radius:12px;padding:14px;margin-top:4px;text-align:center}
+.settle-box.none{background:#f7f7f5}
+.settle-box.settle{background:#eef7ff}
+.settle-label{font-size:12px;color:#999;margin-bottom:4px}
+.settle-value{font-size:16px;font-weight:700}
+
+/* 追加フォーム */
+.add-form{background:#f7f7f5;border-radius:12px;padding:14px;margin-top:10px;display:flex;flex-direction:column;gap:8px}
+.add-form input,.add-form select{width:100%;padding:10px 12px;border:1px solid #e8e8e4;border-radius:10px;font-size:14px;background:#fff;color:#1a1a1a;outline:none}
+.add-form input:focus,.add-form select:focus{border-color:#1D9E75}
+.add-form-row{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.btn-primary{background:#1D9E75;color:#fff;border:none;border-radius:10px;padding:11px;font-size:14px;font-weight:600;cursor:pointer;width:100%;transition:opacity .2s}
+.btn-primary:active{opacity:.8}
+.btn-ghost{background:#fff;color:#666;border:1px solid #e8e8e4;border-radius:10px;padding:10px;font-size:13px;cursor:pointer;width:100%}
+
+/* 貯金グラフ */
+.savings-total{text-align:center;padding:24px 20px 16px}
+.savings-total-num{font-size:36px;font-weight:700;color:#1D9E75}
+.savings-total-label{font-size:13px;color:#999;margin-top:4px}
+.chart-wrap{padding:0 16px;margin-bottom:4px}
+canvas{width:100%!important}
+
+/* パスワード */
+.pw-card{background:#fff;border-radius:14px;border:1px solid #e8e8e4;padding:14px;margin-bottom:10px}
+.pw-service{font-size:15px;font-weight:600;margin-bottom:2px}
+.pw-note{font-size:12px;color:#999;margin-bottom:10px}
+.pw-field{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-top:1px solid #f0f0ee}
+.pw-field-label{font-size:11px;color:#999}
+.pw-field-val{font-size:13px;font-family:monospace;color:#1a1a1a;display:flex;align-items:center;gap:6px}
+.pw-field-val button{border:none;background:#f0f0ee;border-radius:6px;padding:3px 8px;font-size:11px;cursor:pointer;color:#666}
+.pw-field-val button:active{background:#e0e0de}
+.pw-del{border:none;background:none;color:#ddd;font-size:18px;cursor:pointer;float:right;line-height:1}
+
+/* 空状態 */
+.empty{text-align:center;padding:32px 20px;color:#bbb;font-size:14px}
+
+/* トースト */
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1a1a1a;color:#fff;padding:10px 20px;border-radius:20px;font-size:13px;z-index:200;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="page-month" class="page active">
+  <div class="page-header">
+    <div class="page-title">家計ノート</div>
+    <div class="page-sub">二人で共有</div>
+  </div>
+  <div class="month-nav">
+    <button onclick="changeMonth(-1)">‹</button>
+    <span class="month-label" id="month-label">2026年6月</span>
+    <button onclick="changeMonth(1)">›</button>
+  </div>
+
+  <div class="card">
+    <div class="card-title">今月の入金状況</div>
+    <div class="payment-grid">
+      <div class="payment-item">
+        <div class="payment-who">太郎</div>
+        <div class="payment-type">生活費 ¥64,400</div>
+        <button class="payment-toggle unpaid" id="pay-t-living" onclick="togglePayment('t-living')">未入金</button>
+      </div>
+      <div class="payment-item">
+        <div class="payment-who">花子</div>
+        <div class="payment-type">生活費 ¥64,400</div>
+        <button class="payment-toggle unpaid" id="pay-h-living" onclick="togglePayment('h-living')">未入金</button>
+      </div>
+      <div class="payment-item">
+        <div class="payment-who">太郎</div>
+        <div class="payment-type">共有貯金 ¥15,000</div>
+        <button class="payment-toggle unpaid" id="pay-t-saving" onclick="togglePayment('t-saving')">未入金</button>
+      </div>
+      <div class="payment-item">
+        <div class="payment-who">花子</div>
+        <div class="payment-type">共有貯金 ¥15,000</div>
+        <button class="payment-toggle unpaid" id="pay-h-saving" onclick="togglePayment('h-saving')">未入金</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="card-title">立替費用</div>
+    <div id="tx-list"></div>
+    <div class="add-form">
+      <input type="text" id="tx-memo" placeholder="内容（例：スーパーで買い物）">
+      <div class="add-form-row">
+        <input type="number" id="tx-amt" placeholder="金額" min="0">
+        <select id="tx-who">
+          <option value="太郎">太郎が立替</option>
+          <option value="花子">花子が立替</option>
+        </select>
+      </div>
+      <input type="date" id="tx-date">
+      <button class="btn-primary" onclick="addTx()">＋ 追加する</button>
+    </div>
+    <div class="settle-box none" id="settle-box">
+      <div class="settle-label">月末精算</div>
+      <div class="settle-value" id="settle-value" style="color:#999">記録がありません</div>
+    </div>
+  </div>
+</div>
+
+<div id="page-savings" class="page">
+  <div class="page-header">
+    <div class="page-title">共有貯金</div>
+    <div class="page-sub">二人の積み立て</div>
+  </div>
+  <div class="savings-total">
+    <div class="savings-total-num" id="savings-total">¥0</div>
+    <div class="savings-total-label">累計貯金額</div>
+  </div>
+  <div class="chart-wrap">
+    <canvas id="savings-chart" height="200" role="img" aria-label="共有貯金の月別推移">共有貯金の推移グラフ</canvas>
+  </div>
+  <div class="card">
+    <div class="card-title">入金を記録する</div>
+    <div class="add-form">
+      <div class="add-form-row">
+        <input type="month" id="s-month">
+        <input type="number" id="s-amt" placeholder="金額" value="30000">
+      </div>
+      <button class="btn-primary" onclick="addSavings()">＋ 追加する</button>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-title">月別記録</div>
+    <div id="savings-list"></div>
+  </div>
+</div>
+
+<div id="page-pw" class="page">
+  <div class="page-header">
+    <div class="page-title">パスワード</div>
+    <div class="page-sub">共有アカウント管理</div>
+  </div>
+  <div class="card">
+    <div class="card-title">新しく追加</div>
+    <div class="add-form">
+      <input type="text" id="pw-service" placeholder="サービス名（例：Netflix）">
+      <input type="text" id="pw-user" placeholder="ID / メールアドレス">
+      <input type="text" id="pw-pass" placeholder="パスワード">
+      <input type="text" id="pw-note" placeholder="メモ（任意）">
+      <button class="btn-primary" onclick="addPw()">＋ 追加する</button>
+    </div>
+  </div>
+  <div style="padding:0 16px" id="pw-list"></div>
+</div>
+
+<nav class="bottom-nav">
+  <button class="nav-btn active" onclick="switchPage('month',this)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+    今月
+  </button>
+  <button class="nav-btn" onclick="switchPage('savings',this)">
+    <svg viewBox="0 0 24 24"><path d="M19 5H5a2 2 0 00-2 2v10a2 2 0 002 2h14a2 2 0 002-2V7a2 2 0 00-2-2z"/><polyline points="3 10 12 14 21 10"/></svg>
+    共有貯金
+  </button>
+  <button class="nav-btn" onclick="switchPage('pw',this)">
+    <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0110 0v4"/></svg>
+    パスワード
+  </button>
+</nav>
+
+<div class="toast" id="toast"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, onValue, remove } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBFbQR4aUhKg6mZLK__yl-gVgC53YU7dT8",
+  authDomain: "couple-app-a9f3d.firebaseapp.com",
+  databaseURL: "https://couple-app-a9f3d-default-rtdb.firebaseio.com",
+  projectId: "couple-app-a9f3d",
+  storageBucket: "couple-app-a9f3d.firebasestorage.app",
+  messagingSenderId: "401478090822",
+  appId: "1:401478090822:web:65de24bb7f24e565dd8a47"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+
+const MONTHS = ['2026年1月','2026年2月','2026年3月','2026年4月','2026年5月','2026年6月','2026年7月','2026年8月','2026年9月','2026年10月','2026年11月','2026年12月'];
+let mi = 5;
+let txns = {};
+let payments = {};
+let savingsData = {};
+let pwData = {};
+let savingsChart = null;
+
+function monthKey(){ return `2026-${String(mi+1).padStart(2,'0')}` }
+
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+window.switchPage = function(id, btn){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  btn.classList.add('active');
+  if(id==='savings') renderSavingsChart();
+}
+
+window.changeMonth = function(d){
+  mi = Math.max(0, Math.min(11, mi+d));
+  document.getElementById('month-label').textContent = MONTHS[mi];
+  renderTx();
+  renderPayments();
+}
+
+window.togglePayment = function(key){
+  const mk = monthKey();
+  const cur = (payments[mk]||{})[key];
+  const newVal = !cur;
+  set(ref(db, `payments/${mk}/${key}`), newVal);
+  toast(newVal ? '入金済みにしました' : '未入金に戻しました');
+}
+
+onValue(ref(db,'payments'), snap=>{
+  payments = snap.val()||{};
+  renderPayments();
+});
+
+function renderPayments(){
+  const mk = monthKey();
+  const mp = payments[mk]||{};
+  ['t-living','h-living','t-saving','h-saving'].forEach(k=>{
+    const el = document.getElementById('pay-'+k);
+    if(!el) return;
+    const paid = !!mp[k];
+    el.textContent = paid ? '入金済み ✓' : '未入金';
+    el.className = 'payment-toggle ' + (paid?'paid':'unpaid');
+  });
+}
+
+window.addTx = function(){
+  const memo = document.getElementById('tx-memo').value.trim();
+  const amt = parseInt(document.getElementById('tx-amt').value)||0;
+  const who = document.getElementById('tx-who').value;
+  const date = document.getElementById('tx-date').value || new Date().toISOString().split('T')[0];
+  if(!memo||!amt){ toast('内容と金額を入力してください'); return; }
+  const key = Date.now().toString();
+  const mk = monthKey();
+  set(ref(db, `txns/${mk}/${key}`), {memo,amt,who,date});
+  document.getElementById('tx-memo').value='';
+  document.getElementById('tx-amt').value='';
+  toast('追加しました');
+}
+
+window.deleteTx = function(mk, key){
+  if(!confirm('削除しますか？')) return;
+  remove(ref(db, `txns/${mk}/${key}`));
+  toast('削除しました');
+}
+
+onValue(ref(db,'txns'), snap=>{
+  txns = snap.val()||{};
+  renderTx();
+});
+
+function renderTx(){
+  const mk = monthKey();
+  const list = txns[mk]||{};
+  const el = document.getElementById('tx-list');
+  const entries = Object.entries(list).sort((a,b)=>b[0]-a[0]);
+  if(!entries.length){
+    el.innerHTML = '<div class="empty">立替の記録がありません</div>';
+    calcSettle({});
+    return;
+  }
+  el.innerHTML = entries.map(([key,t])=>`
+    <div class="tx-item">
+      <div class="tx-avatar ${t.who==='太郎'?'av-t':'av-h'}">${t.who[0]}</div>
+      <div class="tx-body">
+        <div class="tx-name">${t.memo}</div>
+        <div class="tx-date">${t.date} ・ ${t.who}</div>
+      </div>
+      <div class="tx-amount">¥${t.amt.toLocaleString()}</div>
+      <button class="tx-del" onclick="deleteTx('${mk}','${key}')">×</button>
+    </div>`).join('');
+  calcSettle(list);
+}
+
+function calcSettle(list){
+  let t=0, h=0;
+  Object.values(list).forEach(x=>{ x.who==='太郎'?t+=x.amt:h+=x.amt });
+  const diff = t - h;
+  const abs = Math.abs(diff);
+  const box = document.getElementById('settle-box');
+  const val = document.getElementById('settle-value');
+  if(abs < 10){
+    box.className='settle-box none';
+    val.style.color='#999';
+    val.textContent='差額なし';
+  } else if(diff > 0){
+    box.className='settle-box settle';
+    val.style.color='#185FA5';
+    val.textContent=`花子 → 太郎 へ ¥${abs.toLocaleString()}`;
+  } else {
+    box.className='settle-box settle';
+    val.style.color='#534AB7';
+    val.textContent=`太郎 → 花子 へ ¥${abs.toLocaleString()}`;
+  }
+}
+
+window.addSavings = function(){
+  const m = document.getElementById('s-month').value;
+  const a = parseInt(document.getElementById('s-amt').value)||0;
+  if(!m||!a){ toast('月と金額を入力してください'); return; }
+  const key = m.replace('-','');
+  set(ref(db, `savings/${key}`), {month:m, amt:a});
+  toast('記録しました');
+}
+
+onValue(ref(db,'savings'), snap=>{
+  savingsData = snap.val()||{};
+  renderSavingsList();
+  if(document.getElementById('page-savings').classList.contains('active')) renderSavingsChart();
+});
+
+function renderSavingsList(){
+  const el = document.getElementById('savings-list');
+  const entries = Object.values(savingsData).sort((a,b)=>b.month.localeCompare(a.month));
+  if(!entries.length){ el.innerHTML='<div class="empty">記録がありません</div>'; return; }
+  el.innerHTML = entries.map(d=>`
+    <div style="display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid #f0f0ee">
+      <span style="font-size:14px;color:#666">${d.month.replace('-','年')}月</span>
+      <span style="font-size:14px;font-weight:600">¥${d.amt.toLocaleString()}</span>
+    </div>`).join('');
+}
+
+function renderSavingsChart(){
+  const entries = Object.values(savingsData).sort((a,b)=>a.month.localeCompare(b.month));
+  let cum=0;
+  const labels = entries.map(d=>{ const[,m]=d.month.split('-'); return `${parseInt(m)}月` });
+  const cums = entries.map(d=>{ cum+=d.amt; return cum });
+  document.getElementById('savings-total').textContent = cum>0?`¥${cum.toLocaleString()}`:'¥0';
+  if(savingsChart) savingsChart.destroy();
+  savingsChart = new Chart(document.getElementById('savings-chart'),{
+    type:'line',
+    data:{
+      labels: labels.length?labels:['データなし'],
+      datasets:[{
+        label:'累計貯金',
+        data: cums.length?cums:[0],
+        borderColor:'#1D9E75',
+        backgroundColor:'rgba(29,158,117,0.08)',
+        borderWidth:2.5,
+        pointBackgroundColor:'#1D9E75',
+        pointRadius:5,
+        fill:true,
+        tension:0.35
+      }]
+    },
+    options:{
+      responsive:true, maintainAspectRatio:false,
+      plugins:{legend:{display:false}, tooltip:{callbacks:{label:ctx=>`¥${ctx.parsed.y.toLocaleString()}`}}},
+      scales:{
+        x:{grid:{color:'rgba(0,0,0,0.05)'}, ticks:{color:'#999', autoSkip:false, maxRotation:0}},
+        y:{grid:{color:'rgba(0,0,0,0.05)'}, ticks:{color:'#999', callback:v=>`¥${(v/10000).toFixed(0)}万`}, beginAtZero:true}
+      }
+    }
+  });
+}
+
+window.addPw = function(){
+  const s = document.getElementById('pw-service').value.trim();
+  const u = document.getElementById('pw-user').value.trim();
+  const p = document.getElementById('pw-pass').value.trim();
+  const n = document.getElementById('pw-note').value.trim();
+  if(!s||!p){ toast('サービス名とパスワードを入力してください'); return; }
+  const key = Date.now().toString();
+  set(ref(db, `passwords/${key}`), {service:s,user:u,pass:p,note:n});
+  ['pw-service','pw-user','pw-pass','pw-note'].forEach(id=>document.getElementById(id).value='');
+  toast('保存しました');
+}
+
+window.deletePw = function(key){
+  if(!confirm('削除しますか？')) return;
+  remove(ref(db, `passwords/${key}`));
+  toast('削除しました');
+}
+
+window.copyText = function(text){
+  navigator.clipboard&&navigator.clipboard.writeText(text);
+  toast('コピーしました');
+}
+
+window.togglePwVis = function(key){
+  const el = document.getElementById('pw-pass-'+key);
+  const btn = document.getElementById('pw-vis-'+key);
+  if(el.dataset.visible==='1'){
+    el.textContent='••••••••';
+    el.dataset.visible='0';
+    btn.textContent='表示';
+  } else {
+    el.textContent=el.dataset.pass;
+    el.dataset.visible='1';
+    btn.textContent='隠す';
+  }
+}
+
+onValue(ref(db,'passwords'), snap=>{
+  pwData = snap.val()||{};
+  renderPw();
+});
+
+function renderPw(){
+  const el = document.getElementById('pw-list');
+  const entries = Object.entries(pwData).sort((a,b)=>b[0]-a[0]);
+  if(!entries.length){ el.innerHTML='<div class="empty">パスワードがまだありません</div>'; return; }
+  el.innerHTML = entries.map(([key,p])=>`
+    <div class="pw-card">
+      <button class="pw-del" onclick="deletePw('${key}')">×</button>
+      <div class="pw-service">${p.service}</div>
+      ${p.note?`<div class="pw-note">${p.note}</div>`:'<div style="margin-bottom:10px"></div>'}
+      <div class="pw-field">
+        <span class="pw-field-label">ID / メール</span>
+        <span class="pw-field-val">${p.user||'—'} <button onclick="copyText('${p.user}')">コピー</button></span>
+      </div>
+      <div class="pw-field">
+        <span class="pw-field-label">パスワード</span>
+        <span class="pw-field-val">
+          <span id="pw-pass-${key}" data-pass="${p.pass}" data-visible="0">••••••••</span>
+          <button id="pw-vis-${key}" onclick="togglePwVis('${key}')">表示</button>
+          <button onclick="copyText('${p.pass}')">コピー</button>
+        </span>
+      </div>
+    </div>`).join('');
+}
+
+const today = new Date();
+document.getElementById('tx-date').value = today.toISOString().split('T')[0];
+document.getElementById('s-month').value = today.toISOString().slice(0,7);
+</script>
+</body>
+</html>
