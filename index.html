@@ -466,6 +466,21 @@ window.addPw = function(){
   toast('保存しました');
 }
 
+window.editPw = function(key){
+  const cur = pwData[key];
+  if(!cur) return;
+  const newService = prompt('サービス名を修正してください', cur.service);
+  if(newService===null) return;
+  const newUser = prompt('ID / メールアドレスを修正してください', cur.user||'');
+  if(newUser===null) return;
+  const newPass = prompt('パスワードを修正してください', cur.pass);
+  if(newPass===null) return;
+  const newNote = prompt('メモを修正してください', cur.note||'');
+  if(newNote===null) return;
+  set(ref(db, `passwords/${key}`), {service:newService.trim(), user:newUser.trim(), pass:newPass.trim(), note:newNote.trim()});
+  toast('修正しました');
+}
+
 window.deletePw = function(key){
   if(!confirm('削除しますか？')) return;
   remove(ref(db, `passwords/${key}`));
@@ -502,7 +517,10 @@ function renderPw(){
   if(!entries.length){ el.innerHTML='<div class="empty">パスワードがまだありません</div>'; return; }
   el.innerHTML = entries.map(([key,p])=>`
     <div class="pw-card">
-      <button class="pw-del" onclick="deletePw('${key}')">×</button>
+      <div style="display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px">
+        <button onclick="editPw('${key}')" style="border:none;background:#f0f0ee;border-radius:6px;padding:3px 10px;font-size:11px;cursor:pointer;color:#666">修正</button>
+        <button class="pw-del" onclick="deletePw('${key}')">×</button>
+      </div>
       <div class="pw-service">${p.service}</div>
       ${p.note?`<div class="pw-note">${p.note}</div>`:'<div style="margin-bottom:10px"></div>'}
       <div class="pw-field">
