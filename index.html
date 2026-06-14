@@ -280,6 +280,9 @@ window.togglePayment = function(key){
 onValue(ref(db,'payments'), snap=>{
   payments = snap.val()||{};
   renderPayments();
+  const mk = monthKey();
+  const list = (txns[mk])||{};
+  calcSettle(list);
 });
 
 function renderPayments(){
