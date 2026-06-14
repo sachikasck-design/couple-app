@@ -355,26 +355,44 @@ function renderTx(){
   calcSettle(list);
 }
 
+window.toggleSettled = function(){
+  const mk = monthKey();
+  const cur = (payments[mk]||{})['settled'];
+  set(ref(db, `payments/${mk}/settled`), !cur);
+  toast(!cur ? '精算済みにしました！' : '精算済みを取り消しました');
+}
+
 function calcSettle(list){
   let t=0, h=0;
   Object.values(list).forEach(x=>{ x.who==='よしたか'?t+=x.amt:h+=x.amt });
-  const diff = t - h;
+  const total = t + h;
+  const half = Math.floor(total / 2);
+  const diff = t - half;
   const abs = Math.abs(diff);
   const box = document.getElementById('settle-box');
-  const val = document.getElementById('settle-value');
-  if(abs < 10){
+  if(total === 0){
     box.className='settle-box none';
-    val.style.color='#999';
-    val.textContent='差額なし';
-  } else if(diff > 0){
-    box.className='settle-box settle';
-    val.style.color='#185FA5';
-    val.textContent=`さちか → よしたか へ ¥${abs.toLocaleString()}`;
+    box.innerHTML=`<div class="settle-label">月末精算</div><div class="settle-value" style="color:#999">記録がありません</div>`;
+  } else if(abs < 10){
+    box.className='settle-box none';
+    box.innerHTML=`<div class="settle-label">月末精算</div><div class="settle-value" style="color:#999">差額なし</div>`;
   } else {
-    box.className='settle-box settle';
-    val.style.color='#534AB7';
-    val.textContent=`よしたか → さちか へ ¥${abs.toLocaleString()}`;
+    const mk = monthKey();
+    const done = (payments[mk]||{})['settled'];
+    const direction = diff > 0
+      ? `さちか → よしたか へ ¥${abs.toLocaleString()}`
+      : `よしたか → さちか へ ¥${abs.toLocaleString()}`;
+    const color = diff > 0 ? '#185FA5' : '#534AB7';
+    box.className = done ? 'settle-box none' : 'settle-box settle';
+    box.innerHTML = `
+      <div class="settle-label">月末精算</div>
+      <div class="settle-value" style="color:${done?'#999':color};margin-bottom:10px">${done?'精算済み ✓':direction}</div>
+      <button onclick="toggleSettled()" style="border:none;border-radius:8px;padding:7px 16px;font-size:13px;font-weight:600;cursor:pointer;width:100%;background:${done?'#f0f0ee':'#1D9E75'};color:${done?'#666':'#fff'}">
+        ${done ? '✓ 精算済み（タップで戻す）' : '精算した！'}
+      </button>`;
   }
+  document.getElementById('settle-preview').textContent = total===0?'記録なし':abs<10?'差額なし':`¥${abs.toLocaleString()}`;
+  document.getElementById('settle-preview').style.color = abs<10?'var(--color-text-secondary)':diff>0?'#185FA5':'#534AB7';
 }
 
 window.editSavings = function(key, month, currentAmt){
